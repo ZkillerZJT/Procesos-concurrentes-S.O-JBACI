@@ -1,0 +1,108 @@
+int pin = 1234;
+int intentosFallidos = 0;
+int ciclo = 1;
+int operacion;
+int fondoUsuario = 5000;
+int fondoCajero = 10000;
+int monto;
+int decisionOper;
+
+binarysem deteccionTarjeta = 0;
+binarysem confirmacionPIN = 0;
+binarysem hacerOperacion = 0;
+binarysem Operacion = 0;
+binarysem Orden = 0;
+binarysem entregaDinero = 0;
+binarysem emiteRecibo = 0;
+
+int validarPIN(int pinIngresado){
+	return pinIngresado == 1234; 
+}
+
+void hacerGiro(){
+	cout<<"Seleccione monto a retirar"<<endl;
+	cin>>monto;
+	
+	if((monto <= fondoUsuario) && (monto <= fondoCajero)){
+	fondoUsuario = fondoUsuario - monto;
+	fondoCajero = fondoCajero - monto;
+	signal(Orden);
+	}else{
+	cout<<"No hay suficientes fondos"<<endl;
+	}
+}
+
+void cajero(){
+	cout<<"Bienvenido!"<<endl;
+	cout<<"Leyendo Tarjeta..."<<endl;
+	signal(deteccionTarjeta);
+
+	while(ciclo > 0){
+	cout<<"Ingrese PIN: "<<endl;
+	cin>>pin;
+	if(validarPIN(pin)){
+		signal(confirmacionPIN);
+		break;
+	}else{
+		cout<<"PIN INCORRECTO"<< endl;
+		intentosFallidos++;
+
+		if(intentosFallidos >= 3){
+		cout<< "Tarjeta Bloqueada, contacte con su banco."<<endl;
+		break;
+		}
+	}
+	}
+	
+    wait(hacerOperacion);
+    do {
+        cout << "Seleccione una operacion." << endl;
+        cout << "1. Giro dinero" << endl;
+        cout << "2. Salir" << endl;
+        cin >> operacion;
+
+        if (operacion == 1) {
+            cout << "Giro de Dinero seleccionado" << endl;
+            signal(Operacion);
+            wait(entregaDinero);
+            cout << "Retire su dinero: $" << monto << endl;
+            wait(emiteRecibo);
+            cout << "Recibo: Le queda $" << fondoUsuario << " en su cuenta" << endl;
+            cout << "¿Desea realizar una nueva operacion?" << endl;
+            cout << "1. Si 2. No" << endl;
+            cin >> decisionOper;
+	    if(decisionOper == 2){
+		cout<<"Expulsando Tarjeta..."<<endl;
+		cout<<"Pantalla de Bienvenida"<<endl;
+	    }
+        } else {
+            cout << "Saliendo..." << endl;
+	    cout << "Expulsando Tarjeta."<<endl;
+	    cout << "Bienvenido!" << endl;
+            break;
+        }
+    } while (decisionOper == 1);
+
+}
+
+void sistemaCentral(){
+	wait(confirmacionPIN);
+	cout<<"PIN correcto."<<endl;
+	signal(hacerOperacion);
+
+	while(ciclo>0){
+	wait(Operacion);
+	hacerGiro();
+	wait(Orden);
+	cout<<"Existen fondos"<<endl;
+	signal(emiteRecibo);
+	signal(entregaDinero);
+	}
+}
+
+void main(){
+	cobegin{
+	cajero();
+	sistemaCentral();
+	}
+}
